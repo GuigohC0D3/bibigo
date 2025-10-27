@@ -13,3 +13,7 @@ def falar(texto: str):
     eng = _get_engine()
     eng.say(texto)
     eng.runAndWait()
+
+def parar():
+    eng = _get_engine()
+    eng.stop()

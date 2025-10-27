@@ -7,3 +7,4 @@ def formatar_preco(p):
     if p.get("market") is not None: parts.append(f"market {p['market']} {p['currency']}")
     src = p.get("source","?")
     return f"{' | '.join(parts)} (fonte: {src})"
+
