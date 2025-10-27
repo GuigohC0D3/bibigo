@@ -24,3 +24,4 @@ def rotear(texto: str) -> str:
 
     # Básico (hora, youtube, pesquisar, wikipedia, tocar...)
     return handle_basic(t)
+    
