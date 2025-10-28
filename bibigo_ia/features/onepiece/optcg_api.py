@@ -1,37 +1,102 @@
+# features/onepiece/optcg_api.py
 import requests
 from rapidfuzz import process, fuzz
 
 BASE = "https://optcgapi.com"
 
+# sessão com timeout e cabeçalhos amigáveis
+_session = requests.Session()
+_session.headers.update({
+    "User-Agent": "BIBIGO/1.0 (+https://github.com/GuigohC0D3)",
+    "Accept": "application/json",
+})
+
 def _get_json(path: str):
-    r = requests.get(f"{BASE}{path}", timeout=30)
+    """
+    Tenta com e sem barra final para evitar 404 de DRF.
+    """
+    url1 = f"{BASE}{path}"
+    url2 = f"{BASE}{path if path.endswith('/') else path + '/'}"
+    r = _session.get(url1, timeout=30)
+    if r.status_code == 404 and not path.endswith('/'):
+        r = _session.get(url2, timeout=30)
     r.raise_for_status()
     return r.json()
 
-def listar_promos():
-    """Lista todas as cartas PROMO (segundo a doc da OPTCG API)."""
-    return _get_json("/api/allPromoCards")
+# -----------------------------
+#            DECKS
+# -----------------------------
 
-def buscar_promo_por_id(card_id: str):
-    """
-    card_id ex.: 'P-001'.
-    Algumas cartas podem estar em 'sets' ou 'decks'. Tentamos set e depois deck.
-    """
-    try:
-        return _get_json(f"/api/sets/card/{card_id}/")
-    except requests.HTTPError:
-        return _get_json(f"/api/decks/card/{card_id}/")
+def listar_decks():
+    """Lista todos os Decks (Starter Decks)."""
+    return _get_json("/api/allDecks/")
 
-def filtrar_promos(query: str, limit=10):
-    """Busca fuzzy por nome/numero/id entre as promos."""
-    promos = listar_promos()
+def listar_cartas_de_deck(st_id: str):
+    """
+    Retorna as cartas de um deck específico.
+    Ex.: st_id = 'ST-01', 'ST-10', etc.
+    """
+    return _get_json(f"/api/decks/{st_id.upper()}/")
+
+def buscar_carta_deck_por_id(card_id: str):
+    """
+    Busca uma carta (que pertence a um deck) pelo card_id.
+    Ex.: 'ST01-001' (formato pode variar na API).
+    """
+    return _get_json(f"/api/decks/card/{card_id.upper()}/")
+
+def filtrar_decks(query: str, limit=10):
+    """
+    Busca fuzzy entre os decks por nome/ID.
+    Retorna lista com 'score' para permitir rankear resultados.
+    """
+    decks = listar_decks()
     chaves = []
-    for p in promos:
-        chave = f"{p.get('card_id','')} {p.get('number','')} {p.get('name','')}"
-        chaves.append((chave, p))
+    for d in decks:
+        chave = " ".join([
+            str(d.get("st_id", "")),
+            str(d.get("deck_id", "")),
+            str(d.get("name", "")),
+            str(d.get("productName", "")),
+            str(d.get("product_name", "")),
+        ]).strip()
+        chaves.append((chave, d))
+
+    if not query:
+        return decks[:limit]
+
     matches = process.extract(
         query,
-        [k for k,_ in chaves],
+        [k for k, _ in chaves],
+        scorer=fuzz.WRatio,
+        limit=limit
+    )
+    out = []
+    for text, score, idx in matches:
+        out.append({"score": score, **chaves[idx][1]})
+    return out
+
+def filtrar_cartas_de_deck(st_id: str, query: str, limit=10):
+    """
+    Fuzzy nas cartas de um deck específico.
+    """
+    cartas = listar_cartas_de_deck(st_id)
+    chaves = []
+    for c in cartas:
+        chave = " ".join([
+            str(c.get("card_id", "")),
+            str(c.get("number", "")),
+            str(c.get("name", "")),
+            str(c.get("rarity", "")),
+        ]).strip()
+        chaves.append((chave, c))
+
+    if not query:
+        return cartas[:limit]
+
+    matches = process.extract(
+        query,
+        [k for k, _ in chaves],
         scorer=fuzz.WRatio,
         limit=limit
     )

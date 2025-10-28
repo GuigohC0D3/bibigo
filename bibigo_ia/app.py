@@ -4,7 +4,7 @@ from voice.falar import falar
 from commands.router import rotear
 
 def main():
-    falar("Olá, eu sou B.I.B.I.G.O., seu assistente pessoal. Em que posso ajudar?")
+    falar("Olá, eu sou BIBIGO, seu assistente pessoal. Em que posso ajudar?")
     while True:
         comando = ouvir_comando()
         if not comando or comando == "nenhum":
